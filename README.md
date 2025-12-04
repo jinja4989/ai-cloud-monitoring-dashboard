@@ -211,7 +211,7 @@ pkill yes
 
 ---
 
-# English Version
+
 
 # 🟦 AI Cloud Monitoring Dashboard  
 Real-Time Cloud Monitoring Dashboard Powered by AWS CloudWatch + Flask
