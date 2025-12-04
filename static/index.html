@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI 클라우드 모니터링 대시보드</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: #f3f4f6;
+    }
+
+    h1 {
+      margin: 0 0 20px;
+      font-size: 1.5rem;
+      text-align: center;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 18px 20px 20px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .card-subtitle {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 360px !important;
+    }
+
+    .status {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: #6b7280;
+      text-align: right;
+    }
+
+    /* AI 카드용 추가 스타일 */
+    .ai-card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 0.9rem;
+    }
+
+    .ai-status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .ai-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .ai-badge-ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .ai-badge-warning {
+      background: #fef9c3;
+      color: #92400e;
+    }
+
+    .ai-badge-critical {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .ai-badge-unknown {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .ai-meta {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .ai-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .ai-list li {
+      margin-bottom: 4px;
+    }
+
+    .ai-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #111827;
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .ai-alert-pill {
+      font-size: 0.8rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .ai-footer {
+      margin-top: 4px;
+      font-size: 0.78rem;
+      color: #6b7280;
+      text-align: right;
+    }
+
+    .ai-error {
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: #b91c1c;
+    }
+  </style>
+</head>
+<body>
+  <h1>EC2 CPU 모니터링 대시보드</h1>
+
+  <div class="container">
+    <!-- 1. CloudWatch 5분 평균 카드 -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">CloudWatch 5분 평균</div>
+          <div class="card-subtitle">/cpu (지난 1시간 평균 CPUUtilization)</div>
+        </div>
+      </div>
+      <canvas id="cloudwatchChart"></canvas>
+      <div id="cloudwatchStatus" class="status"></div>
+    </div>
+
+    <!-- 2. 실시간 CPU 카드 -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">실시간 CPU</div>
+          <div class="card-subtitle">/cpu_live (1초 갱신, 최대 60초 표시)</div>
+        </div>
+      </div>
+      <canvas id="liveCpuChart"></canvas>
+      <div id="liveCpuStatus" class="status"></div>
+    </div>
+
+    <!-- 3. AI 상태 분석 + 알람 카드 -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">AI 상태 분석 & 알림</div>
+          <div class="card-subtitle">
+            /analyze (CloudWatch 메트릭 + Haiku 분석 + SNS 알림)
+          </div>
+        </div>
+        <div class="ai-buttons">
+          <button id="analyzeBtn" class="btn" onclick="fetchAnalyze()">
+            🔍 AI로 상태 분석하기
+          </button>
+          <button id="analyze60Btn" class="btn btn-secondary" onclick="fetchAnalyze(60)">
+            최근 60분 기준
+          </button>
+          <button id="analyze240Btn" class="btn btn-secondary" onclick="fetchAnalyze(240)">
+            최근 4시간 기준
+          </button>
+        </div>
+      </div>
+
+      <div class="ai-card-content">
+        <div class="ai-status-row">
+          <div id="aiStatusBadge" class="ai-badge ai-badge-unknown">
+            상태 미분석
+          </div>
+          <div id="aiMeta" class="ai-meta">
+            아직 분석을 실행하지 않았습니다.
+          </div>
+        </div>
+
+        <div>
+          <strong>요약</strong>
+          <div id="aiSummary" style="margin-top: 4px; font-size: 0.9rem; color: #111827;">
+            버튼을 눌러 현재 인스턴스 상태를 분석해보세요.
+          </div>
+        </div>
+
+        <div>
+          <strong>의심되는 원인</strong>
+          <ul id="aiCauses" class="ai-list">
+            <!-- 동적 생성 -->
+          </ul>
+        </div>
+
+        <div>
+          <strong>권장 조치</strong>
+          <ul id="aiActions" class="ai-list">
+            <!-- 동적 생성 -->
+          </ul>
+        </div>
+
+        <div id="aiAlertInfo" class="ai-alert-pill" style="display:none;">
+          🔔 알람: 아직 발송되지 않음
+        </div>
+
+        <div id="aiError" class="ai-error"></div>
+
+        <div id="aiFooter" class="ai-footer">
+          마지막 분석: - / 알람 쿨다운 정보: -
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ================================
+    // 공통: 유틸 함수
+    // ================================
+    function formatTimeLabel(isoString) {
+      const d = new Date(isoString);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      const ss = String(d.getSeconds()).padStart(2, "0");
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    // 상태 뱃지 스타일 변경
+    function setAiStatusBadge(status) {
+      const badge = document.getElementById("aiStatusBadge");
+      badge.className = "ai-badge"; // 기본 초기화
+
+      let text = "";
+      if (status === "OK") {
+        badge.classList.add("ai-badge-ok");
+        text = "🟢 정상 (OK)";
+      } else if (status === "WARNING") {
+        badge.classList.add("ai-badge-warning");
+        text = "🟡 주의 (WARNING)";
+      } else if (status === "CRITICAL") {
+        badge.classList.add("ai-badge-critical");
+        text = "🔴 위험 (CRITICAL)";
+      } else {
+        badge.classList.add("ai-badge-unknown");
+        text = "상태 미분석";
+      }
+      badge.textContent = text;
+    }
+
+    function renderList(elementId, items) {
+      const el = document.getElementById(elementId);
+      el.innerHTML = "";
+      if (!items || items.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "정보 없음";
+        el.appendChild(li);
+        return;
+      }
+      items.forEach((t) => {
+        const li = document.createElement("li");
+        li.textContent = t;
+        el.appendChild(li);
+      });
+    }
+
+    // ================================
+    // 1. CloudWatch 5분 평균 차트 (/cpu)
+    // ================================
+    const cloudwatchCtx = document
+      .getElementById("cloudwatchChart")
+      .getContext("2d");
+
+    const cloudwatchChart = new Chart(cloudwatchCtx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "CPU (%)",
+            data: [],
+            borderWidth: 2,
+            fill: false,
+            tension: 0.15,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            title: {
+              display: true,
+              text: "CPU Utilization (%)",
+            },
+          },
+          x: {
+            title: {
+              display: true,
+              text: "시간 (5분 평균)",
+            },
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: 12,
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+        },
+      },
+    });
+
+    async function fetchCloudwatchCpu() {
+      const statusEl = document.getElementById("cloudwatchStatus");
+      try {
+        const res = await fetch("/cpu");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.status !== "ok") {
+          statusEl.textContent = `CloudWatch 응답 상태: ${data.status || "unknown"} (${data.message || ""})`;
+          return;
+        }
+
+        const timestamps = data.timestamps || [];
+        const values = data.values || [];
+
+        cloudwatchChart.data.labels = timestamps.map((t) => {
+          const d = new Date(t);
+          const hh = String(d.getHours()).padStart(2, "0");
+          const mm = String(d.getMinutes()).padStart(2, "0");
+          return `${hh}:${mm}`;
+        });
+        cloudwatchChart.data.datasets[0].data = values;
+        cloudwatchChart.update();
+
+        const nowKst = new Date();
+        statusEl.textContent = `마지막 갱신: ${nowKst.toLocaleTimeString()} / 데이터 포인트: ${values.length}개`;
+      } catch (err) {
+        statusEl.textContent = `CloudWatch 데이터 불러오기 오류: ${err.message}`;
+        console.error(err);
+      }
+    }
+
+    setInterval(fetchCloudwatchCpu, 1000);
+    fetchCloudwatchCpu();
+
+    // ================================
+    // 2. 실시간 CPU 차트 (/cpu_live)
+    // ================================
+    const liveCpuCtx = document
+      .getElementById("liveCpuChart")
+      .getContext("2d");
+
+    const liveLabels = [];
+    const liveValues = [];
+
+    const liveCpuChart = new Chart(liveCpuCtx, {
+      type: "line",
+      data: {
+        labels: liveLabels,
+        datasets: [
+          {
+            label: "실시간 CPU (%)",
+            data: liveValues,
+            borderWidth: 2,
+            fill: false,
+            tension: 0.15,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            title: {
+              display: true,
+              text: "CPU Utilization (%)",
+            },
+          },
+          x: {
+            title: {
+              display: true,
+              text: "시간 (최근 60초)",
+            },
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: 6,
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+        },
+      },
+    });
+
+    async function fetchLiveCpu() {
+      const statusEl = document.getElementById("liveCpuStatus");
+      try {
+        const res = await fetch("/cpu_live");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.status !== "ok") {
+          statusEl.textContent = `실시간 응답 상태: ${data.status || "unknown"} (${data.message || ""})`;
+          return;
+        }
+
+        const label = formatTimeLabel(data.timestamp);
+        const value = Number(data.cpu_percent);
+
+        liveLabels.push(label);
+        liveValues.push(value);
+
+        if (liveLabels.length > 60) {
+          liveLabels.shift();
+          liveValues.shift();
+        }
+
+        liveCpuChart.update();
+
+        const nowKst = new Date();
+        statusEl.textContent = `마지막 갱신: ${nowKst.toLocaleTimeString()} / 포인트: ${liveValues.length}개`;
+      } catch (err) {
+        statusEl.textContent = `실시간 데이터 불러오기 오류: ${err.message}`;
+        console.error(err);
+      }
+    }
+
+    setInterval(fetchLiveCpu, 1000);
+    fetchLiveCpu();
+
+    // ================================
+    // 3. /analyze : AI 상태 분석 + 알람
+    // ================================
+    let lastAnalyzeAt = null;
+
+    async function fetchAnalyze(minutes = 60) {
+      const btnMain = document.getElementById("analyzeBtn");
+      const btn60 = document.getElementById("analyze60Btn");
+      const btn240 = document.getElementById("analyze240Btn");
+      const aiMeta = document.getElementById("aiMeta");
+      const aiSummary = document.getElementById("aiSummary");
+      const aiError = document.getElementById("aiError");
+      const aiFooter = document.getElementById("aiFooter");
+      const aiAlertInfo = document.getElementById("aiAlertInfo");
+
+      btnMain.disabled = true;
+      btn60.disabled = true;
+      btn240.disabled = true;
+      aiError.textContent = "";
+      aiMeta.textContent = "AI가 메트릭을 분석하는 중입니다...";
+
+      try {
+        const res = await fetch(`/analyze?minutes=${minutes}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          aiError.textContent = `HTTP 오류: ${res.status} / ${data.message || ""}`;
+          setAiStatusBadge(null);
+          aiSummary.textContent = "분석에 실패했습니다.";
+          return;
+        }
+
+        if (data.status === "TOO_FREQUENT") {
+          aiError.textContent = `요청이 너무 잦습니다. ${data.retry_after_seconds}초 후에 다시 시도해주세요.`;
+          setAiStatusBadge(null);
+          aiSummary.textContent = "쿨다운 때문에 분석이 수행되지 않았습니다.";
+          return;
+        }
+
+        if (data.status !== "OK") {
+          aiError.textContent = `서버 응답 상태: ${data.status || "unknown"}`;
+          setAiStatusBadge(null);
+          aiSummary.textContent = "분석에 실패했습니다.";
+          return;
+        }
+
+        const report = data.ai_report || {};
+        const alert = data.alert || {};
+        const metricSummary = data.metric_summary || {};
+
+        // 상태 뱃지
+        setAiStatusBadge(report.status);
+
+        // 메타 정보
+        const period = data.minutes || minutes;
+        aiMeta.textContent = `분석 기준: 최근 ${period}분 / 인스턴스: ${metricSummary.instance_id || "-"} / 리전: ${metricSummary.region || "-"}`;
+
+        // 요약
+        aiSummary.textContent = report.summary || "요약 정보가 없습니다.";
+
+        // 리스트들
+        renderList("aiCauses", report.suspected_causes || []);
+        renderList("aiActions", report.recommended_actions || []);
+
+        // 알람 정보
+        if (alert.alert_sent) {
+          aiAlertInfo.style.display = "inline-flex";
+          aiAlertInfo.textContent = `🔔 알람 발송됨: ${alert.subject || ""}`;
+        } else {
+          aiAlertInfo.style.display = "inline-flex";
+          if (alert.reason === "cooldown") {
+            aiAlertInfo.textContent = `⏱ 알람 쿨다운 중 (남은 시간: ${alert.cooldown_remaining || 0}초)`;
+          } else if (alert.reason === "no_condition_matched") {
+            aiAlertInfo.textContent = "ℹ️ 알람 조건 미충족 (발송 안 됨)";
+          } else {
+            aiAlertInfo.textContent = "ℹ️ 알람 발송 기록 없음";
+          }
+        }
+
+        // 푸터
+        lastAnalyzeAt = new Date();
+        const kstNow = new Date();
+        aiFooter.textContent = `마지막 분석: ${kstNow.toLocaleTimeString()} / 알람 상태: ${
+          alert.alert_sent ? "발송됨" : "발송 안 됨"
+        }`;
+
+      } catch (err) {
+        aiError.textContent = `분석 중 오류 발생: ${err.message}`;
+        console.error(err);
+        setAiStatusBadge(null);
+        aiSummary.textContent = "분석에 실패했습니다.";
+      } finally {
+        btnMain.disabled = false;
+        btn60.disabled = false;
+        btn240.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
