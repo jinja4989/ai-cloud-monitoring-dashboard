@@ -164,50 +164,27 @@ http://<EC2-퍼블릭-IP>:5000
 ### 경고 알람 이메일
 
 <img width="1412" height="747" alt="image" src="https://github.com/user-attachments/assets/9ec33304-4437-41b6-b4b5-a47b0000bc77" />
-
+```
 AI_ANALYZE_SYSTEM_PROMPT = 
 너는 AWS 인프라 운영을 돕는 SRE/DevOps AI 어시스턴트이다.
 아래에서 제공되는 EC2 메트릭 요약(CPU, NetworkIn, NetworkOut)을 기반으로
 인스턴스의 상태를 평가하고, 간단한 운영 리포트를 JSON 형식으로만 출력하라.
+```
 
-출력은 반드시 아래 JSON 스키마를 따를 것:
-```
-{
-  "status": "OK" | "WARNING" | "CRITICAL",
-  "summary": "한 문장 이상, 3문장 이하로 현재 상태를 설명",
-  "suspected_causes": ["문장 형태의 가능한 원인 1", "원인 2"],
-  "recommended_actions": ["권장 조치 1", "권장 조치 2"]
-}
-```
-- status는 CPU와 네트워크 사용량이 전반적으로 낮고 안정적이면 "OK"
-- 짧은 시간 동안 치솟는 구간은 있지만 전체적으로 버틸 수 있는 수준이면 "WARNING"
-- CPU 평균이 매우 높거나, 최대치가 지속적으로 높고, 네트워크 사용량도 매우 큰 경우 "CRITICAL"을 사용하라.
-- 원인과 조치는 실제 AWS/EC2/웹서비스 운영 관점에서 현실적으로 작성하라.
-- 한국어로 작성하되, JSON 구조와 키 이름은 그대로 유지한다.
+### /analyze에서 Bedrock Haiku에게 보내는 AI 시스템 프롬프트
+<img width="435" height="244" alt="image" src="https://github.com/user-attachments/assets/dd9c6ca7-e425-4d05-b9f1-62451f2f1569" />
 
-```
- try:
-        result_json = json.loads(text)
-    except json.JSONDecodeError:
-        result_json = {
-            "status": "WARNING",
-            "summary": "AI 응답을 JSON으로 파싱하지 못했습니다.",
-            "suspected_causes": [
-                "모델이 JSON 이외의 텍스트를 함께 출력했을 가능성",
-            ],
-            "recommended_actions": [
-                "프롬프트를 더 엄격하게 수정하거나, 응답을 후처리하는 파서 개선 필요",
-            ],
-            "raw_text": text,
-        }
-```
- 
-    metric_summary + ai_report를 보고 조건 맞으면 SNS 이메일 알람 발송.
-    - CPU 평균 > 70 또는 최대 > 90
-    - 또는 AI status == CRITICAL
-    publish() 호출로 SNS 토픽에 메시지 발송. 
-    
----
+
+### 코드에서 build_ai_prompt(metric_summary)가 만드는 내용은 형식이 고정된 한글 설명 템플릿.  
+<img width="384" height="202" alt="image" src="https://github.com/user-attachments/assets/f955e6b2-8c43-4a13-8675-e7e60299da26" />
+
+-{period_minutes} → 최근 몇 분 기준인지 (기본 60분)
+-{start_iso} ~ {end_iso} → UTC 기준 시작/끝 시각
+-각 평균/최대 값은 round(..., 2)로 소수 둘째 자리까지 반올림된 숫자
+
+### 이메일 발송 prompt
+<img width="308" height="222" alt="image" src="https://github.com/user-attachments/assets/79903c13-c6e8-44be-8ec8-cfe258a3c91f" />
+-AI 분석 결과 ai_result 전체를 JSON 예쁘게 포맷해서 본문으로 보내는 구조
 
 ## 🧪 시연(데모) 팁
 
