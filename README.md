@@ -232,6 +232,8 @@ pkill yes
 
 ---
 
+# http://3.36.13.89:5000
+only dev mode
 
 
 # 🟦 AI Cloud Monitoring Dashboard  
