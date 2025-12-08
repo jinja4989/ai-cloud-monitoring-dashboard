@@ -214,6 +214,7 @@ AI_ANALYZE_SYSTEM_PROMPT =
 ### EC2에서 아래 명령으로 CPU 부하를 인위적으로 발생시킬 수 있습니다:
 
 <img width="901" height="588" alt="1" src="https://github.com/user-attachments/assets/40952896-664d-4b97-a4c1-e4e5a509bf64" />
+
 ```
 yes > /dev/null &
 ```
@@ -221,6 +222,7 @@ yes > /dev/null &
 종료는:
 
 <img width="908" height="592" alt="pkill" src="https://github.com/user-attachments/assets/c9db95a0-f763-409b-b47b-eedb98c6d20b" />
+
 ```
 pkill yes
 ```
