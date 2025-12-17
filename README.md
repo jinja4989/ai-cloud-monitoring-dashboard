@@ -208,6 +208,56 @@ pkill yes
 
 ---
 
+## 🐳 Docker 기반 실행 방법 (권장)
+
+이 프로젝트는 **Docker 컨테이너 환경에서도 실행 가능**하도록 구성되어 있습니다.  
+이를 통해 로컬 환경, EC2 여부와 관계없이 동일한 실행 환경을 보장합니다.
+
+> ⚠️ 참고  
+> CloudWatch 기반 CPU 5분 평균 메트릭은  
+> **실행 중인 EC2 인스턴스가 있을 때만 정상 동작**합니다.  
+> 컨테이너 단독 실행 환경에서는 실시간 CPU 모니터링 기능이 중심적으로 동작합니다.
+
+### 1. Docker 이미지 빌드
+```bash
+docker build -t ai-cloud-monitoring .
+```
+2. 컨테이너 실행
+```
+docker run -p 5000:5000 ai-cloud-monitoring
+```
+
+브라우저 접속:
+
+http://localhost:5000
+
+🧩 Docker Compose로 실행 (권장)
+```
+docker compose up --build
+```
+
+Dockerfile 기반 이미지 자동 빌드
+
+컨테이너 생성 및 실행 자동화
+
+로컬/발표 환경에서 빠른 재현 가능
+
+중지:
+
+docker compose down
+
+📦 Docker 적용 목적
+
+EC2 의존성 최소화
+
+실행 환경 표준화
+
+발표 및 데모 시 빠른 재현
+
+추후 ECS/EKS 배포를 고려한 구조 설계
+
+---
+
 ## 🎯 프로젝트 목표
 
 -클라우드 환경에서 모니터링 시스템 구축 경험 습득
