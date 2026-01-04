@@ -16,7 +16,7 @@
 ---
 
 ## 📖 프로젝트 개요
-* **목적**: 인프라 관리자가 수많은 지표를 직접 해석하는 수고를 덜고, AI가 정제된 인사이트를 제공하여 즉각적인 의사결정을 돕는 시스템 구축.
+* **목적**: 실시간 그래프 구현 과 서버 자원(CPU) 사용률의 모니터링 경험을 / 접속, 과부하와 같은 로그 분석을 통해 조건부 자동 알람 경험을 쌓음.
 * **핵심 가치**: 실시간 시각화(Chart.js) + AI 기반 지능형 리포팅 + 조건부 자동 알람.
 
 ---
@@ -36,26 +36,43 @@
 ## 🔥 트러블 슈팅 (핵심 경험)
 
 <details>
-<summary><b>1. AI 응답 데이터 파싱 및 형식 고정 문제</b></summary>
+<summary><b>1. EC2 Flask 서버 외부 접속 불가 문제</b></summary>
 
-- **문제점**: Bedrock AI가 분석 결과를 제공할 때 응답 형식이 일정하지 않아 웹 대시보드 파싱 에러 발생.
-- **해결책**: 
-    - **Prompt Engineering**: 시스템 프롬프트에 JSON 출력 형식을 명시적으로 지정하고 Few-shot 예시 제공.
-    - **Validation**: Python 코드에서 JSON 정합성을 체크하는 로직 추가.
-- **결과**: AI 분석 결과의 웹 연동 성공 및 데이터 신뢰도 확보.
-
-<img width="435" alt="AI Prompt" src="https://github.com/user-attachments/assets/dd9c6ca7-e425-4d05-b9f1-62451f2f1569">
+- **문제**: EC2에서 서버가 구동 중임에도 외부 브라우저에서 접속되지 않음.
+- **원인**: AWS EC2 인바운드 규칙(Security Group)이 기본적으로 닫혀 있어 외부 트래픽을 차단함.
+- **해결**: 인바운드 규칙에 Flask 기본 포트(5000)를 추가하고, 소스 범위를 `0.0.0.0/0`으로 설정하여 외부 접근을 허용함.
 
 </details>
 
 <details>
-<summary><b>2. CloudWatch 지연(5분) 보완을 위한 실시간 지표 도입</b></summary>
+<summary><b>2. Chart.js 그래프 렌더링 오류 (비동기 처리)</b></summary>
 
-- **문제점**: CloudWatch Metrics API는 기본 5분 단위 데이터라 실시간 장애 대응에 한계가 있음.
-- **해결책**: `psutil` 라이브러리를 사용해 인스턴스 내부의 1초 단위 실시간 CPU 사용량 지표를 병행 수집.
-- **결과**: 대시보드에서 실시간 부하 상태를 즉각 확인 가능(Chart.js 실시간 갱신).
+- **문제**: 페이지 로드 시 차트가 나타나지 않거나 데이터가 표시되지 않음.
+- **원인**: 프론트엔드 스크립트 실행 순서 오류로 인해, API 데이터를 수집하기 전 빈 데이터를 차트에 push하려고 시도함.
+- **해결**: 데이터 Fetch 로직과 차트 렌더링 로직의 실행 순서를 조정하여, 데이터를 정상적으로 수신한 후 차트에 반영되도록 수정함.
 
 </details>
+
+<details>
+<summary><b>3. 200 OK 응답에도 그래프 미출력 문제 (URL & 규격 불일치)</b></summary>
+
+- **문제**: 서버 로그에는 정상 응답(200 OK)이 기록되나 브라우저 화면에는 변화가 없음.
+- **원인**: `fetch` 경로가 상대 경로로 설정되어 발생한 주소 오류 및 서버 응답 JSON 구조와 프론트엔드 파싱 로직의 규격 불일치.
+- **해결**: `fetch` 경로를 절대 경로로 고정하여 주소 오류를 방지하고, 백엔드 응답 데이터 포맷을 프론트엔드 요구 사양에 맞춰 통일함.
+
+</details>
+
+<details>
+<summary><b>4. 파일 수정 과정에서의 인터페이스(JSON Key) 어긋남</b></summary>
+
+- **문제**: 기능 추가 및 코드 수정 후 갑작스럽게 데이터 연동이 중단됨.
+- **원인**: `app.py`(백엔드)와 `index.html`(프론트엔드)을 개별 수정하는 과정에서 JSON 데이터의 Key 이름이 서로 다르게 변경됨.
+- **해결**: 양쪽 파일의 데이터 인터페이스 구조를 전수 점검하여 JSON Key 명칭을 하나로 통일함.
+
+</details>
+
+<img width="435" alt="AI Prompt" src="https://github.com/user-attachments/assets/dd9c6ca7-e425-4d05-b9f1-62451f2f1569">
+
 
 ---
 
@@ -76,6 +93,7 @@
 특정 조건(고부하 등) 충족 시 AI 분석 내용을 포함한 알람을 발송합니다.
 - **경보 이미지**:
 <img width="912" alt="Alarm Trigger" src="https://github.com/user-attachments/assets/93af4c41-a26e-411e-83ad-87bd99d64a33">
+
 - **이메일 리포트**:
 <img width="1412" alt="Email Report" src="https://github.com/user-attachments/assets/9ec33304-4437-41b6-b4b5-a47b0000bc77">
 
@@ -101,8 +119,8 @@ docker compose up --build
 부하 중지: pkill yes
 
 <img width="901" alt="Load Test" src="https://github.com/user-attachments/assets/40952896-664d-4b97-a4c1-e4e5a509bf64">
-
-🎯 프로젝트 목표 및 향후 계획
+```
+## 🎯 프로젝트 목표 및 향후 계획
 [x] AWS Boto3를 활용한 클라우드 메트릭 수집 파이프라인 구축
 
 [x] 실시간 데이터 시각화 및 AI 분석 기능 통합
