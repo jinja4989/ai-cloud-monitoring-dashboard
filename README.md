@@ -33,7 +33,7 @@
 
 ---
 
-## 🔥 트러블 슈팅 (핵심 경험)
+## 🔥 트러블 슈팅 
 
 <details>
 <summary><b>1. EC2 Flask 서버 외부 접속 불가 문제</b></summary>
@@ -70,8 +70,6 @@
 - **해결**: 양쪽 파일의 데이터 인터페이스 구조를 전수 점검하여 JSON Key 명칭을 하나로 통일함.
 
 </details>
-
-<img width="435" alt="AI Prompt" src="https://github.com/user-attachments/assets/dd9c6ca7-e425-4d05-b9f1-62451f2f1569">
 
 
 ---
